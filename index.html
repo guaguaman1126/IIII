@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -10,7 +11,7 @@
             padding: 0;
             box-sizing: border-box;
         }
-        
+
         body {
             font-family: Arial, sans-serif;
             height: 100vh;
@@ -19,7 +20,7 @@
             background: #2c2c2c;
             color: white;
         }
-        
+
         /* 混音器區域 */
         .mixer-section {
             flex: 1;
@@ -29,26 +30,26 @@
             justify-content: center;
             align-items: center;
         }
-        
+
         .mixer-container {
             display: flex;
             gap: 30px;
             align-items: end;
         }
-        
+
         .mixer-channel {
             display: flex;
             flex-direction: column;
             align-items: center;
             gap: 10px;
         }
-        
+
         .mixer-label {
             font-weight: bold;
             font-size: 14px;
             margin-bottom: 5px;
         }
-        
+
         .volume-slider {
             writing-mode: bt-lr;
             -webkit-appearance: slider-vertical;
@@ -58,12 +59,12 @@
             outline: none;
             cursor: pointer;
         }
-        
+
         .volume-value {
             font-size: 12px;
             color: #ccc;
         }
-        
+
         /* 播放控制區域 */
         .player-section {
             flex: 1;
@@ -75,13 +76,13 @@
             align-items: center;
             gap: 20px;
         }
-        
+
         .player-controls {
             display: flex;
             gap: 15px;
             align-items: center;
         }
-        
+
         .control-btn {
             background: #666;
             border: none;
@@ -91,31 +92,31 @@
             cursor: pointer;
             font-size: 16px;
         }
-        
+
         .control-btn:hover {
             background: #777;
         }
-        
+
         .play-btn {
             background: #28a745;
             padding: 15px 20px;
             font-size: 18px;
         }
-        
+
         .play-btn:hover {
             background: #218838;
         }
-        
+
         .speed-control {
             display: flex;
             align-items: center;
             gap: 10px;
         }
-        
+
         .speed-slider {
             width: 100px;
         }
-        
+
         /* 進度條樣式 */
         .progress-container {
             display: flex;
@@ -124,14 +125,14 @@
             width: 100%;
             max-width: 500px;
         }
-        
+
         .time-display {
             font-size: 14px;
             color: #ccc;
             min-width: 45px;
             text-align: center;
         }
-        
+
         .progress-bar-container {
             flex: 1;
             position: relative;
@@ -139,7 +140,7 @@
             display: flex;
             align-items: center;
         }
-        
+
         .progress-bar {
             width: 100%;
             height: 6px;
@@ -148,7 +149,7 @@
             position: relative;
             cursor: pointer;
         }
-        
+
         .progress-fill {
             height: 100%;
             background: #28a745;
@@ -156,7 +157,7 @@
             width: 0%;
             transition: width 0.1s ease;
         }
-        
+
         .progress-handle {
             position: absolute;
             top: 50%;
@@ -170,16 +171,16 @@
             transition: left 0.1s ease;
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
         }
-        
+
         .progress-handle:active {
             cursor: grabbing;
             transform: translate(-50%, -50%) scale(1.2);
         }
-        
+
         .progress-handle:hover {
             transform: translate(-50%, -50%) scale(1.1);
         }
-        
+
         /* 聲部選擇區域 */
         .voice-section {
             flex: 1;
@@ -189,14 +190,14 @@
             justify-content: center;
             align-items: center;
         }
-        
+
         .voice-buttons {
             display: flex;
             gap: 15px;
             flex-wrap: wrap;
             justify-content: center;
         }
-        
+
         .voice-btn {
             background: #666;
             border: none;
@@ -209,21 +210,22 @@
             min-width: 60px;
             transition: all 0.3s ease;
         }
-        
+
         .voice-btn:hover {
             background: #777;
         }
-        
+
         .voice-btn.active {
             background: #28a745;
             box-shadow: 0 0 10px rgba(40, 167, 69, 0.5);
         }
-        
+
         .voice-btn.active:hover {
             background: #218838;
         }
     </style>
 </head>
+
 <body>
     <!-- 混音器區域 -->
     <div class="mixer-section">
@@ -258,6 +260,11 @@
                 <input type="range" class="volume-slider" id="volume-b2" min="0" max="100" value="50" orient="vertical">
                 <div class="volume-value" id="value-b2">50</div>
             </div>
+            <div class="mixer-channel">
+                <div class="mixer-label">節拍</div>
+                <input type="range" class="volume-slider" id="volume-temp" min="0" max="100" value="80" orient="vertical">
+                <div class="volume-value" id="value-temp">80</div>
+            </div>
         </div>
     </div>
 
@@ -268,7 +275,7 @@
             <button class="control-btn play-btn" id="play-btn">播放</button>
             <button class="control-btn" id="next-btn">+5秒</button>
         </div>
-        
+
         <!-- 進度條 -->
         <div class="progress-container">
             <div class="time-display" id="current-time">00:00</div>
@@ -280,7 +287,7 @@
             </div>
             <div class="time-display" id="total-time">00:00</div>
         </div>
-        
+
         <div class="speed-control">
             <label>播放速度：</label>
             <input type="range" class="speed-slider" id="speed-slider" min="0.5" max="2" step="0.1" value="1">
@@ -304,12 +311,13 @@
     <script>
         // 音檔路徑配置
         const audioFiles = {
-            's1': 'i carry your heart(No力度)-女高音1.mp3',
-            's2': 'i carry your heart(No力度)-女高音_2.mp3',
-            'a': 'i carry your heart(No力度)-女低音.mp3',
-            't': 'i carry your heart(No力度)-男高音.mp3',
-            'b1': 'i carry your heart(No力度)-男低音.mp3',
-            'b2': 'i carry your heart(No力度)-男低音_(1).mp3'
+            's1': 's1.mp3',
+            's2': 's2.mp3',
+            'a': 'a.mp3',
+            't': 't.mp3',
+            'b1': 'b1.mp3',
+            'b2': 'b2.mp3',
+            'temp': 'temp.mp3'
         };
 
         // 創建音檔元素
@@ -323,28 +331,33 @@
             Object.keys(audioFiles).forEach(voice => {
                 console.log(`載入音檔: ${voice} -> ${audioFiles[voice]}`);
                 const audio = new Audio(audioFiles[voice]);
-                audio.preload = 'metadata';
+                audio.preload = 'auto';
                 audio.volume = 0.5; // 初始音量50%
                 audioElements[voice] = audio;
-                
+
                 // 監聽音檔載入完成
-                audio.addEventListener('loadedmetadata', function() {
+                audio.addEventListener('loadedmetadata', function () {
                     console.log(`${voice} 音檔載入完成, 時長: ${audio.duration}秒`);
-                    if (!masterAudio) {
+                    if (!masterAudio && voice !== 'temp') { // 節拍音檔不作為主音檔
                         masterAudio = audio;
                         totalTime = audio.duration;
                         updateProgress();
                         console.log('設定主音檔:', voice, '時長:', totalTime);
                     }
+
+                    // 設定節拍音檔的音量
+                    if (voice === 'temp') {
+                        audio.volume = 0.8; // 節拍音檔設為適中音量
+                    }
                 });
 
                 // 監聽載入錯誤
-                audio.addEventListener('error', function(e) {
+                audio.addEventListener('error', function (e) {
                     console.error(`${voice} 音檔載入失敗:`, e);
                 });
 
                 // 監聽播放結束
-                audio.addEventListener('ended', function() {
+                audio.addEventListener('ended', function () {
                     console.log(`${voice} 播放結束`);
                     if (isPlaying) {
                         playBtn.textContent = '播放';
@@ -355,11 +368,11 @@
                     }
                 });
             });
-            
+
             console.log('音檔元素創建完成:', audioElements);
         }
 
-        // 同步所有音檔的播放位置
+        // 同步所有音檔的播放位置 不一定要用
         function syncAudioTime(time) {
             Object.values(audioElements).forEach(audio => {
                 if (Math.abs(audio.currentTime - time) > 0.1) {
@@ -368,25 +381,110 @@
             });
         }
 
-        // 播放選定的聲部
-        function playSelectedVoices() {
-            console.log('當前選擇的聲部:', currentlySelected);
-            if (currentlySelected === 'all') {
-                // 播放所有聲部
-                console.log('播放所有聲部');
-                Object.keys(audioElements).forEach(key => {
-                    const audio = audioElements[key];
-                    console.log(`嘗試播放 ${key}:`, audio);
-                    audio.play().catch(e => console.log(`${key} 播放失敗:`, e));
-                });
-            } else {
-                // 只播放選定的聲部
-                const selectedAudio = audioElements[currentlySelected];
-                console.log(`播放單一聲部 ${currentlySelected}:`, selectedAudio);
-                if (selectedAudio) {
-                    selectedAudio.play().catch(e => console.log(`${currentlySelected} 播放失敗:`, e));
-                }
+        // 更新滑桿位置和顯示數值的函數
+        function updateSlider(voiceKey, volume) {
+            const slider = document.getElementById(`volume-${voiceKey}`);
+            const valueDisplay = document.getElementById(`value-${voiceKey}`);
+            if (slider && valueDisplay) {
+                const sliderValue = Math.round(volume * 100);
+                slider.value = sliderValue;
+                valueDisplay.textContent = sliderValue;
             }
+        }
+
+        // 設定音量和更新介面的函數 (A方法)
+        function setVolumeAndUI(selectedVoice) {
+            console.log('設定音量和更新介面:', selectedVoice);
+            
+            switch (selectedVoice) {
+                case 'all':
+                    // 全部聲部模式：所有聲部都是正常音量
+                    audioElements['s1'].volume = 0.5; updateSlider('s1', 0.5);
+                    audioElements['s2'].volume = 0.5; updateSlider('s2', 0.5);
+                    audioElements['a'].volume = 0.5; updateSlider('a', 0.5);
+                    audioElements['t'].volume = 0.5; updateSlider('t', 0.5);
+                    audioElements['b1'].volume = 0.5; updateSlider('b1', 0.5);
+                    audioElements['b2'].volume = 0.5; updateSlider('b2', 0.5);
+                    break;
+                    
+                case 's1':
+                    // S1重點模式：S1音量0.9，其他聲部0.2
+                    audioElements['s1'].volume = 0.9; updateSlider('s1', 0.9);
+                    audioElements['s2'].volume = 0.2; updateSlider('s2', 0.2);
+                    audioElements['a'].volume = 0.2; updateSlider('a', 0.2);
+                    audioElements['t'].volume = 0.2; updateSlider('t', 0.2);
+                    audioElements['b1'].volume = 0.2; updateSlider('b1', 0.2);
+                    audioElements['b2'].volume = 0.2; updateSlider('b2', 0.2);
+                    break;
+                    
+                case 's2':
+                    // S2重點模式：S2音量0.9，其他聲部0.2
+                    audioElements['s1'].volume = 0.2; updateSlider('s1', 0.2);
+                    audioElements['s2'].volume = 0.9; updateSlider('s2', 0.9);
+                    audioElements['a'].volume = 0.2; updateSlider('a', 0.2);
+                    audioElements['t'].volume = 0.2; updateSlider('t', 0.2);
+                    audioElements['b1'].volume = 0.2; updateSlider('b1', 0.2);
+                    audioElements['b2'].volume = 0.3; updateSlider('b2', 0.3);
+                    break;
+                    
+                case 'a':
+                    // A重點模式：A音量0.9，其他聲部0.2
+                    audioElements['s1'].volume = 0.2; updateSlider('s1', 0.2);
+                    audioElements['s2'].volume = 0.2; updateSlider('s2', 0.2);
+                    audioElements['a'].volume = 0.9; updateSlider('a', 0.9);
+                    audioElements['t'].volume = 0.2; updateSlider('t', 0.2);
+                    audioElements['b1'].volume = 0.2; updateSlider('b1', 0.2);
+                    audioElements['b2'].volume = 0.3; updateSlider('b2', 0.3);
+                    break;
+                    
+                case 't':
+                    // T重點模式：T音量0.9，其他聲部0.2
+                    audioElements['s1'].volume = 0.2; updateSlider('s1', 0.2);
+                    audioElements['s2'].volume = 0.2; updateSlider('s2', 0.2);
+                    audioElements['a'].volume = 0.2; updateSlider('a', 0.2);
+                    audioElements['t'].volume = 0.9; updateSlider('t', 0.9);
+                    audioElements['b1'].volume = 0.2; updateSlider('b1', 0.2);
+                    audioElements['b2'].volume = 0.3; updateSlider('b2', 0.3);
+                    break;
+                    
+                case 'b1':
+                    // B1重點模式：B1音量0.9，其他聲部0.2
+                    audioElements['s1'].volume = 0.2; updateSlider('s1', 0.2);
+                    audioElements['s2'].volume = 0.2; updateSlider('s2', 0.2);
+                    audioElements['a'].volume = 0.2; updateSlider('a', 0.2);
+                    audioElements['t'].volume = 0.2; updateSlider('t', 0.2);
+                    audioElements['b1'].volume = 0.9; updateSlider('b1', 0.9);
+                    audioElements['b2'].volume = 0.2; updateSlider('b2', 0.2);
+                    break;
+                    
+                case 'b2':
+                    // B2重點模式：B2音量0.9，其他聲部0.2
+                    audioElements['s1'].volume = 0.2; updateSlider('s1', 0.2);
+                    audioElements['s2'].volume = 0.2; updateSlider('s2', 0.2);
+                    audioElements['a'].volume = 0.2; updateSlider('a', 0.2);
+                    audioElements['t'].volume = 0.2; updateSlider('t', 0.2);
+                    audioElements['b1'].volume = 0.2; updateSlider('b1', 0.2);
+                    audioElements['b2'].volume = 0.9; updateSlider('b2', 0.9);
+                    break;
+                    
+                default:
+                    console.log('未知的聲部選擇:', selectedVoice);
+                    break;
+            }
+        }
+
+        // 播放所有音檔 (簡化版)
+        function playSelectedVoices() {
+            console.log('播放所有音檔');
+            
+            // 播放所有聲部音檔
+            audioElements['s1'].play().catch(e => console.log('s1 播放失敗:', e));
+            audioElements['s2'].play().catch(e => console.log('s2 播放失敗:', e));
+            audioElements['a'].play().catch(e => console.log('a 播放失敗:', e));
+            audioElements['t'].play().catch(e => console.log('t 播放失敗:', e));
+            audioElements['b1'].play().catch(e => console.log('b1 播放失敗:', e));
+            audioElements['b2'].play().catch(e => console.log('b2 播放失敗:', e));
+            audioElements['temp'].play().catch(e => console.log('temp 播放失敗:', e));
         }
 
         // 暫停所有音檔
@@ -408,12 +506,13 @@
         volumeSliders.forEach(slider => {
             const valueDisplay = document.getElementById(slider.id.replace('volume', 'value'));
             const voiceKey = slider.id.replace('volume-', '').replace('-', '');
-            
-            slider.addEventListener('input', function() {
+
+            slider.addEventListener('input', function () {
                 valueDisplay.textContent = this.value;
-                // 更新對應音檔的音量
+                // 更新對應音檔的音量（包含節拍音檔）
                 if (audioElements[voiceKey]) {
                     audioElements[voiceKey].volume = this.value / 100;
+                    console.log(`${voiceKey} 音量調整為: ${this.value}%`);
                 }
             });
         });
@@ -422,7 +521,7 @@
         const playBtn = document.getElementById('play-btn');
         let isPlaying = false;
 
-        playBtn.addEventListener('click', function() {
+        playBtn.addEventListener('click', function () {
             console.log('播放按鈕被點擊, 當前狀態:', isPlaying);
             if (isPlaying) {
                 this.textContent = '播放';
@@ -440,11 +539,11 @@
         });
 
         // 跳轉控制
-        document.getElementById('prev-btn').addEventListener('click', function() {
+        document.getElementById('prev-btn').addEventListener('click', function () {
             console.log('後退5秒');
         });
 
-        document.getElementById('next-btn').addEventListener('click', function() {
+        document.getElementById('next-btn').addEventListener('click', function () {
             console.log('前進5秒');
         });
 
@@ -452,7 +551,7 @@
         const speedSlider = document.getElementById('speed-slider');
         const speedValue = document.getElementById('speed-value');
 
-        speedSlider.addEventListener('input', function() {
+        speedSlider.addEventListener('input', function () {
             speedValue.textContent = this.value + 'x';
         });
 
@@ -462,18 +561,18 @@
         const progressHandle = document.getElementById('progress-handle');
         const currentTimeDisplay = document.getElementById('current-time');
         const totalTimeDisplay = document.getElementById('total-time');
-        
+
         let currentTime = 0;
         let totalTime = 0;
         let isDragging = false;
-        
+
         // 格式化時間顯示
         function formatTime(seconds) {
             const minutes = Math.floor(seconds / 60);
             const secs = Math.floor(seconds % 60);
             return `${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
         }
-        
+
         // 更新進度條顯示
         function updateProgress() {
             if (totalTime > 0) {
@@ -484,31 +583,31 @@
             currentTimeDisplay.textContent = formatTime(currentTime);
             totalTimeDisplay.textContent = formatTime(totalTime);
         }
-        
+
         // 設定進度位置
         function setProgress(percentage) {
             currentTime = (percentage / 100) * totalTime;
             setAudioTime(currentTime);
             updateProgress();
         }
-        
+
         // 點擊進度條跳轉
-        progressBar.addEventListener('click', function(e) {
+        progressBar.addEventListener('click', function (e) {
             if (!isDragging) {
                 const rect = progressBar.getBoundingClientRect();
                 const percentage = ((e.clientX - rect.left) / rect.width) * 100;
                 setProgress(Math.max(0, Math.min(100, percentage)));
             }
         });
-        
+
         // 拖曳控制
-        progressHandle.addEventListener('mousedown', function(e) {
+        progressHandle.addEventListener('mousedown', function (e) {
             isDragging = true;
             document.addEventListener('mousemove', onMouseMove);
             document.addEventListener('mouseup', onMouseUp);
             e.preventDefault();
         });
-        
+
         function onMouseMove(e) {
             if (isDragging) {
                 const rect = progressBar.getBoundingClientRect();
@@ -516,19 +615,19 @@
                 setProgress(Math.max(0, Math.min(100, percentage)));
             }
         }
-        
+
         function onMouseUp() {
             isDragging = false;
             document.removeEventListener('mousemove', onMouseMove);
             document.removeEventListener('mouseup', onMouseUp);
         }
-        
+
         // 初始化進度條
         updateProgress();
-        
+
         // 播放進度同步
         let playInterval;
-        
+
         function startPlayback() {
             playInterval = setInterval(() => {
                 if (masterAudio && !isDragging) {
@@ -539,20 +638,20 @@
                 }
             }, 100); // 更頻繁的更新以保持同步
         }
-        
+
         function stopPlayback() {
             clearInterval(playInterval);
         }
-        
+
         // 跳轉按鈕功能
-        document.getElementById('prev-btn').addEventListener('click', function() {
+        document.getElementById('prev-btn').addEventListener('click', function () {
             const newTime = Math.max(0, currentTime - 5);
             currentTime = newTime;
             setAudioTime(newTime);
             updateProgress();
         });
-        
-        document.getElementById('next-btn').addEventListener('click', function() {
+
+        document.getElementById('next-btn').addEventListener('click', function () {
             const newTime = Math.min(totalTime, currentTime + 5);
             currentTime = newTime;
             setAudioTime(newTime);
@@ -562,23 +661,23 @@
         // 聲部選擇
         const voiceButtons = document.querySelectorAll('.voice-btn');
         voiceButtons.forEach(button => {
-            button.addEventListener('click', function() {
+            button.addEventListener('click', function () {
                 // 移除所有active狀態
                 voiceButtons.forEach(btn => btn.classList.remove('active'));
                 // 添加當前按鈕的active狀態
                 this.classList.add('active');
-                
+
                 // 更新當前選擇的聲部
                 const buttonText = this.textContent;
                 console.log('按鈕文字:', buttonText);
-                
+
                 if (buttonText === '全') {
                     currentlySelected = 'all';
                 } else {
                     // 正確映射按鈕文字到音檔key
                     const voiceMapping = {
                         'S1': 's1',
-                        'S2': 's2', 
+                        'S2': 's2',
                         'A': 'a',
                         'T': 't',
                         'B1': 'b1',
@@ -586,23 +685,24 @@
                     };
                     currentlySelected = voiceMapping[buttonText] || buttonText.toLowerCase();
                 }
-                
+
                 console.log('映射後的聲部:', currentlySelected);
-                
+
+                // 立即調用A方法設定音量和更新介面
+                setVolumeAndUI(currentlySelected);
+
                 // 如果正在播放，重新開始播放選定的聲部
                 if (isPlaying) {
-                    pauseAllAudio();
-                    setTimeout(() => {
-                        playSelectedVoices();
-                    }, 50);
+                    // 不需要暫停，直接播放
+                    playSelectedVoices();
                 }
-                
+
                 console.log('選擇聲部：', buttonText, '-> ', currentlySelected);
             });
         });
 
         // 速度控制（影響所有音檔）
-        speedSlider.addEventListener('input', function() {
+        speedSlider.addEventListener('input', function () {
             speedValue.textContent = this.value + 'x';
             Object.values(audioElements).forEach(audio => {
                 audio.playbackRate = parseFloat(this.value);
@@ -613,4 +713,5 @@
         initializeAudio();
     </script>
 </body>
+
 </html>
