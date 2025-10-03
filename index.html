@@ -262,7 +262,8 @@
             </div>
             <div class="mixer-channel">
                 <div class="mixer-label">節拍</div>
-                <input type="range" class="volume-slider" id="volume-temp" min="0" max="100" value="80" orient="vertical">
+                <input type="range" class="volume-slider" id="volume-temp" min="0" max="100" value="80"
+                    orient="vertical">
                 <div class="volume-value" id="value-temp">80</div>
             </div>
         </div>
@@ -395,7 +396,7 @@
         // 設定音量和更新介面的函數 (A方法)
         function setVolumeAndUI(selectedVoice) {
             console.log('設定音量和更新介面:', selectedVoice);
-            
+
             switch (selectedVoice) {
                 case 'all':
                     // 全部聲部模式：所有聲部都是正常音量
@@ -407,7 +408,7 @@
                     audioElements['b2'].volume = 0.5; updateSlider('b2', 0.5);
                     audioElements['temp'].volume = audioElements['temp'].volume; updateSlider('temp', audioElements['temp'].volume);
                     break;
-                    
+
                 case 's1':
                     // S1重點模式：S1音量0.9，其他聲部0.1
                     audioElements['s1'].volume = 0.9; updateSlider('s1', 0.9);
@@ -418,7 +419,7 @@
                     audioElements['b2'].volume = 0.1; updateSlider('b2', 0.1);
                     audioElements['temp'].volume = audioElements['temp'].volume; updateSlider('temp', audioElements['temp'].volume);
                     break;
-                    
+
                 case 's2':
                     // S2重點模式：S2音量0.9，其他聲部0.1
                     audioElements['s1'].volume = 0.1; updateSlider('s1', 0.1);
@@ -429,7 +430,7 @@
                     audioElements['b2'].volume = 0.1; updateSlider('b2', 0.1);
                     audioElements['temp'].volume = audioElements['temp'].volume; updateSlider('temp', audioElements['temp'].volume);
                     break;
-                    
+
                 case 'a':
                     // A重點模式：A音量0.9，其他聲部0.1
                     audioElements['s1'].volume = 0.1; updateSlider('s1', 0.1);
@@ -440,7 +441,7 @@
                     audioElements['b2'].volume = 0.1; updateSlider('b2', 0.1);
                     audioElements['temp'].volume = audioElements['temp'].volume; updateSlider('temp', audioElements['temp'].volume);
                     break;
-                    
+
                 case 't':
                     // T重點模式：T音量0.9，其他聲部0.1
                     audioElements['s1'].volume = 0.1; updateSlider('s1', 0.1);
@@ -451,7 +452,7 @@
                     audioElements['b2'].volume = 0.1; updateSlider('b2', 0.1);
                     audioElements['temp'].volume = audioElements['temp'].volume; updateSlider('temp', audioElements['temp'].volume);
                     break;
-                    
+
                 case 'b1':
                     // B1重點模式：B1音量0.9，其他聲部0.1
                     audioElements['s1'].volume = 0.1; updateSlider('s1', 0.1);
@@ -462,7 +463,7 @@
                     audioElements['b2'].volume = 0.1; updateSlider('b2', 0.1);
                     audioElements['temp'].volume = audioElements['temp'].volume; updateSlider('temp', audioElements['temp'].volume);
                     break;
-                    
+
                 case 'b2':
                     // B2重點模式：B2音量0.9，其他聲部0.1
                     audioElements['s1'].volume = 0.1; updateSlider('s1', 0.1);
@@ -473,7 +474,7 @@
                     audioElements['b2'].volume = 0.9; updateSlider('b2', 0.9);
                     audioElements['temp'].volume = audioElements['temp'].volume; updateSlider('temp', audioElements['temp'].volume);
                     break;
-                    
+
                 default:
                     console.log('未知的聲部選擇:', selectedVoice);
                     break;
@@ -483,7 +484,7 @@
         // 播放所有音檔 (簡化版)
         function playSelectedVoices() {
             console.log('播放所有音檔');
-            
+
             // 播放所有聲部音檔
             audioElements['s1'].play().catch(e => console.log('s1 播放失敗:', e));
             audioElements['s2'].play().catch(e => console.log('s2 播放失敗:', e));
@@ -540,6 +541,8 @@
                 this.textContent = '暫停';
                 isPlaying = true;
                 console.log('開始播放...');
+                setAudioTime(currentTime);
+                updateProgress();
                 playSelectedVoices();
                 startPlayback();
             }
