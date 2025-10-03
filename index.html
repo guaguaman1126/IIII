@@ -484,7 +484,8 @@
         // 播放所有音檔 (簡化版)
         function playSelectedVoices() {
             console.log('播放所有音檔');
-
+            setAudioTime(currentTime);
+            updateProgress();
             // 播放所有聲部音檔
             audioElements['s1'].play().catch(e => console.log('s1 播放失敗:', e));
             audioElements['s2'].play().catch(e => console.log('s2 播放失敗:', e));
@@ -493,6 +494,8 @@
             audioElements['b1'].play().catch(e => console.log('b1 播放失敗:', e));
             audioElements['b2'].play().catch(e => console.log('b2 播放失敗:', e));
             audioElements['temp'].play().catch(e => console.log('temp 播放失敗:', e));
+
+
         }
 
         // 暫停所有音檔
