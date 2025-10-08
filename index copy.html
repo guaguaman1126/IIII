@@ -373,13 +373,6 @@
         let currentlySelected = 'all';
         let masterAudio = null;
 
-        // Web Audio API 相關變數
-        let audioContext;
-        let audioBuffers = {};
-        let audioSources = {};
-        let gainNodes = {};
-        let useWebAudio = false;
-
 
 
         // Loading 狀態追蹤
@@ -387,115 +380,59 @@
         const totalCount = Object.keys(audioFiles).length;
         const loadingOverlay = document.getElementById('loading-overlay');
 
-        // 初始化 Web Audio API
-        function initWebAudio() {
-            try {
-                audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                console.log('Web Audio API 初始化成功');
-                return true;
-            } catch (e) {
-                console.log('Web Audio API 不支援，使用傳統方式');
-                return false;
-            }
-        }
-
-        // 載入音檔到 Web Audio 緩衝區
-        async function loadAudioBuffer(url, key) {
-            try {
-                const response = await fetch(url);
-                const arrayBuffer = await response.arrayBuffer();
-                const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
-                audioBuffers[key] = audioBuffer;
-                console.log(`${key} Web Audio 載入成功，時長: ${audioBuffer.duration}秒`);
-                
-                // 設定主音檔時長
-                if (!totalTime && key !== 'temp') {
-                    totalTime = audioBuffer.duration;
-                    updateProgress();
-                    console.log('Web Audio 設定主音檔時長:', totalTime);
-                }
-                
-                return true;
-            } catch (error) {
-                console.error(`${key} Web Audio 載入失敗:`, error);
-                return false;
-            }
-        }
-
         // 初始化音檔
         function initializeAudio() {
             console.log('開始初始化音檔...');
-            
-            // 嘗試使用 Web Audio API
-            useWebAudio = initWebAudio();
-            
-            if (useWebAudio) {
-                console.log('使用 Web Audio API 載入音檔');
-                // 使用 Web Audio API 載入
-                Object.keys(audioFiles).forEach(async (voice) => {
-                    const success = await loadAudioBuffer(audioFiles[voice], voice);
-                    if (success) {
-                        loadedCount++;
-                        if (loadedCount >= totalCount) {
-                            hideLoading();
-                            console.log('Web Audio API 所有音檔載入完成');
-                        }
+            Object.keys(audioFiles).forEach(voice => {
+                console.log(`載入音檔: ${voice} -> ${audioFiles[voice]}`);
+                const audio = new Audio(audioFiles[voice]);
+                audio.preload = 'auto';
+                audio.volume = 0.5; // 初始音量50%
+                audioElements[voice] = audio;
+
+                // 監聽音檔載入完成
+                audio.addEventListener('loadedmetadata', function () {
+                    console.log(`${voice} 音檔載入完成, 時長: ${audio.duration}秒`);
+                    
+                    loadedCount++;
+                    
+                    if (!masterAudio && voice !== 'temp') { // 節拍音檔不作為主音檔
+                        masterAudio = audio;
+                        totalTime = audio.duration;
+                        updateProgress();
+                        console.log('設定主音檔:', voice, '時長:', totalTime);
+                    }
+
+                    // 設定節拍音檔的音量
+                    if (voice === 'temp') {
+                        audio.volume = 0.8; // 節拍音檔設為適中音量
+                    }
+                    
+                    // 檢查是否所有音檔都載入完成
+                    if (loadedCount >= totalCount) {
+                        hideLoading();
                     }
                 });
-            } else {
-                console.log('使用傳統 HTML5 Audio 載入音檔');
-                // 傳統方式載入
-                Object.keys(audioFiles).forEach(voice => {
-                    console.log(`載入音檔: ${voice} -> ${audioFiles[voice]}`);
-                    const audio = new Audio(audioFiles[voice]);
-                    audio.preload = 'auto';
-                    audio.volume = 0.5; // 初始音量50%
-                    audioElements[voice] = audio;
 
-                    // 監聽音檔載入完成
-                    audio.addEventListener('loadedmetadata', function () {
-                        console.log(`${voice} 音檔載入完成, 時長: ${audio.duration}秒`);
-                        
-                        loadedCount++;
-                        
-                        if (!masterAudio && voice !== 'temp') { // 節拍音檔不作為主音檔
-                            masterAudio = audio;
-                            totalTime = audio.duration;
-                            updateProgress();
-                            console.log('設定主音檔:', voice, '時長:', totalTime);
-                        }
-
-                        // 設定節拍音檔的音量
-                        if (voice === 'temp') {
-                            audio.volume = 0.8; // 節拍音檔設為適中音量
-                        }
-                        
-                        // 檢查是否所有音檔都載入完成
-                        if (loadedCount >= totalCount) {
-                            hideLoading();
-                        }
-                    });
-
-                    // 監聽載入錯誤
-                    audio.addEventListener('error', function (e) {
-                        console.error(`${voice} 音檔載入失敗:`, e);
-                    });
-
-                    // 監聽播放結束
-                    audio.addEventListener('ended', function () {
-                        console.log(`${voice} 播放結束`);
-                        if (isPlaying) {
-                            playBtn.textContent = '播放';
-                            isPlaying = false;
-                            stopPlayback();
-                            currentTime = 0;
-                            updateProgress();
-                        }
-                    });
+                // 監聽載入錯誤
+                audio.addEventListener('error', function (e) {
+                    console.error(`${voice} 音檔載入失敗:`, e);
                 });
 
-                console.log('音檔元素創建完成:', audioElements);
-            }
+                // 監聽播放結束
+                audio.addEventListener('ended', function () {
+                    console.log(`${voice} 播放結束`);
+                    if (isPlaying) {
+                        playBtn.textContent = '播放';
+                        isPlaying = false;
+                        stopPlayback();
+                        currentTime = 0;
+                        updateProgress();
+                    }
+                });
+            });
+
+            console.log('音檔元素創建完成:', audioElements);
         }
 
         // 隱藏 Loading 介面
@@ -530,32 +467,20 @@
             }
         }
 
-        // 通用音量設定函數 (支援 Web Audio 和傳統方式)
-        function setVolumeForVoice(voiceKey, volume) {
-            if (useWebAudio && gainNodes[voiceKey]) {
-                // Web Audio API 音量控制
-                gainNodes[voiceKey].gain.value = volume;
-            } else if (audioElements[voiceKey]) {
-                // 傳統 HTML5 Audio 音量控制
-                audioElements[voiceKey].volume = volume;
-            }
-            updateSlider(voiceKey, volume);
-        }
-
-        // 設定音量和更新介面的函數 (Web Audio 優化版)
+        // 設定音量和更新介面的函數 (A方法)
         function setVolumeAndUI(selectedVoice) {
             console.log('設定音量和更新介面:', selectedVoice);
 
             switch (selectedVoice) {
                 case 'all':
                     // 全部聲部模式：所有聲部都是正常音量
-                    setVolumeForVoice('s1', 0.5);
-                    setVolumeForVoice('s2', 0.5);
-                    setVolumeForVoice('a', 0.5);
-                    setVolumeForVoice('t', 0.5);
-                    setVolumeForVoice('b1', 0.5);
-                    setVolumeForVoice('b2', 0.5);
-                    // temp 音量保持不變
+                    audioElements['s1'].volume = 0.5; updateSlider('s1', 0.5);
+                    audioElements['s2'].volume = 0.5; updateSlider('s2', 0.5);
+                    audioElements['a'].volume = 0.5; updateSlider('a', 0.5);
+                    audioElements['t'].volume = 0.5; updateSlider('t', 0.5);
+                    audioElements['b1'].volume = 0.5; updateSlider('b1', 0.5);
+                    audioElements['b2'].volume = 0.5; updateSlider('b2', 0.5);
+                    audioElements['temp'].volume = audioElements['temp'].volume; updateSlider('temp', audioElements['temp'].volume);
                     break;
 
                 case 's1':
@@ -630,105 +555,45 @@
             }
         }
 
-        // Web Audio API 播放函數
-        function playWithWebAudio() {
-            console.log('使用 Web Audio API 同時播放所有音檔');
-            
-            // 停止之前的播放
-            Object.keys(audioSources).forEach(key => {
-                if (audioSources[key]) {
-                    audioSources[key].stop();
-                    delete audioSources[key];
-                }
-            });
-            
-            // 同時啟動所有音軌
-            Object.keys(audioBuffers).forEach(key => {
-                const source = audioContext.createBufferSource();
-                const gainNode = audioContext.createGain();
-                
-                source.buffer = audioBuffers[key];
-                source.connect(gainNode);
-                gainNode.connect(audioContext.destination);
-                
-                // 根據當前聲部選擇設定音量
-                setWebAudioVolume(key, gainNode);
-                
-                source.start(0, currentTime); // 從當前時間開始播放
-                audioSources[key] = source;
-                gainNodes[key] = gainNode;
-            });
-        }
-
-        // Web Audio 音量設定
-        function setWebAudioVolume(key, gainNode) {
-            let volume = 0.5; // 預設音量
-            
-            if (key === 'temp') {
-                volume = 0.8; // 節拍音檔
-            } else if (currentlySelected !== 'all') {
-                volume = (currentlySelected === key) ? 0.9 : 0.1;
-            }
-            
-            gainNode.gain.value = volume;
-        }
-
-        // 播放所有音檔 (Web Audio 優化版)
+        // 播放所有音檔 (簡化版)
         function playSelectedVoices() {
-            if (useWebAudio && Object.keys(audioBuffers).length > 0) {
-                // 使用 Web Audio API - iOS 完美同步播放
-                playWithWebAudio();
-            } else {
-                // 傳統方式 - 依序啟動
-                console.log('使用傳統方式依序播放音檔');
-                setAudioTime(currentTime);
-                updateProgress();
-                
+            console.log('播放所有音檔');
+            setAudioTime(currentTime);
+            updateProgress();
+            
+            if (isIOS) {
+                // iOS 模式：依序啟動音檔，增加間隔
                 const audioKeys = ['s1', 's2', 'a', 't', 'b1', 'b2', 'temp'];
-                let startedCount = 0;
-                
-                function startNextAudio() {
-                    if (startedCount < audioKeys.length) {
-                        const key = audioKeys[startedCount];
-                        if (audioElements[key]) {
-                            audioElements[key].play()
-                                .then(() => {
-                                    console.log(`${key} 成功啟動`);
-                                    startedCount++;
-                                    setTimeout(startNextAudio, 50);
-                                })
-                                .catch(e => {
-                                    console.log(`${key} 啟動失敗:`, e);
-                                    startedCount++;
-                                    setTimeout(startNextAudio, 50);
-                                });
-                        } else {
-                            startedCount++;
-                            setTimeout(startNextAudio, 10);
-                        }
-                    }
-                }
-                
-                startNextAudio();
+                audioKeys.forEach((key, index) => {
+                    setTimeout(() => {
+                        audioElements[key].play().catch(e => {
+                            console.log(`${key} 播放失敗 (iOS):`, e);
+                            // iOS 重試機制
+                            setTimeout(() => {
+                                audioElements[key].play().catch(e2 => 
+                                    console.log(`${key} 重試失敗:`, e2)
+                                );
+                            }, 100);
+                        });
+                    }, index * 100); // 每100ms啟動下一個
+                });
+            } else {
+                // 一般模式：同時播放
+                audioElements['s1'].play().catch(e => console.log('s1 播放失敗:', e));
+                audioElements['s2'].play().catch(e => console.log('s2 播放失敗:', e));
+                audioElements['a'].play().catch(e => console.log('a 播放失敗:', e));
+                audioElements['t'].play().catch(e => console.log('t 播放失敗:', e));
+                audioElements['b1'].play().catch(e => console.log('b1 播放失敗:', e));
+                audioElements['b2'].play().catch(e => console.log('b2 播放失敗:', e));
+                audioElements['temp'].play().catch(e => console.log('temp 播放失敗:', e));
             }
         }
 
         // 暫停所有音檔
         function pauseAllAudio() {
-            if (useWebAudio) {
-                // 停止 Web Audio API 播放
-                Object.keys(audioSources).forEach(key => {
-                    if (audioSources[key]) {
-                        audioSources[key].stop();
-                        delete audioSources[key];
-                    }
-                });
-            } else {
-                // 傳統方式暫停
-                Object.values(audioElements).forEach(audio => {
-                    audio.pause();
-                });
-            }
+            Object.values(audioElements).forEach(audio => {
+                audio.pause();
+            });
         }
 
         // 設定音檔播放位置
