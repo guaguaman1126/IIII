@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>音檔混音器</title>
+    <title>我凱瑞你心(ios壞掉)</title>
     <style>
         * {
             margin: 0;
@@ -252,8 +252,13 @@
         }
 
         @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
         }
 
         .loading-text {
@@ -356,6 +361,10 @@
         </div>
     </div>
 
+    <footer style="text-align: center; padding: 10px; background: #1c1c1c; color: #888; font-size: 12px;">
+        <span>目前ios被排擠，音檔壞掉嗚嗚嗚debug中</span>
+    </footer>
+
     <script>
         // 音檔路徑配置
         const audioFiles = {
@@ -393,9 +402,9 @@
                 // 監聽音檔載入完成
                 audio.addEventListener('loadedmetadata', function () {
                     console.log(`${voice} 音檔載入完成, 時長: ${audio.duration}秒`);
-                    
+
                     loadedCount++;
-                    
+
                     if (!masterAudio && voice !== 'temp') { // 節拍音檔不作為主音檔
                         masterAudio = audio;
                         totalTime = audio.duration;
@@ -407,7 +416,7 @@
                     if (voice === 'temp') {
                         audio.volume = 0.8; // 節拍音檔設為適中音量
                     }
-                    
+
                     // 檢查是否所有音檔都載入完成
                     if (loadedCount >= totalCount) {
                         hideLoading();
