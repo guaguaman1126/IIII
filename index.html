@@ -373,12 +373,18 @@
         let currentlySelected = 'all';
         let masterAudio = null;
 
+        // 手機檢測
+        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        if (isMobile) {
+            console.log('檢測到手機裝置，啟用手機優化模式');
+        }
+
         // Loading 狀態追蹤
         let loadedCount = 0;
         const totalCount = Object.keys(audioFiles).length;
         const loadingOverlay = document.getElementById('loading-overlay');
 
-        // 初始化音檔
+        // 初始化音檔 - 手機優化版本
         function initializeAudio() {
             console.log('開始初始化音檔...');
             Object.keys(audioFiles).forEach(voice => {
@@ -386,6 +392,11 @@
                 const audio = new Audio(audioFiles[voice]);
                 audio.preload = 'auto';
                 audio.volume = 0.5; // 初始音量50%
+                
+                // 手機優化設定
+                audio.crossOrigin = 'anonymous'; // 避免跨域問題
+                audio.loop = false; // 確保不會意外循環
+                
                 audioElements[voice] = audio;
 
                 // 監聽音檔載入完成
@@ -445,11 +456,17 @@
             loadingOverlay.classList.remove('hidden');
         }
 
-        // 同步所有音檔的播放位置 不一定要用
+        // 同步所有音檔的播放位置 - 手機優化版本
         function syncAudioTime(time) {
+            // 減少同步頻率，避免手機跳針
             Object.values(audioElements).forEach(audio => {
-                if (Math.abs(audio.currentTime - time) > 0.1) {
-                    audio.currentTime = time;
+                // 增大容差值，減少不必要的時間調整
+                if (Math.abs(audio.currentTime - time) > 0.3) {
+                    try {
+                        audio.currentTime = time;
+                    } catch (e) {
+                        console.warn('音檔時間同步失敗:', e);
+                    }
                 }
             });
         }
@@ -553,21 +570,29 @@
             }
         }
 
-        // 播放所有音檔 (簡化版)
+        // 播放所有音檔 - 手機優化版本
         function playSelectedVoices() {
             console.log('播放所有音檔');
             setAudioTime(currentTime);
             updateProgress();
-            // 播放所有聲部音檔
-            audioElements['s1'].play().catch(e => console.log('s1 播放失敗:', e));
-            audioElements['s2'].play().catch(e => console.log('s2 播放失敗:', e));
-            audioElements['a'].play().catch(e => console.log('a 播放失敗:', e));
-            audioElements['t'].play().catch(e => console.log('t 播放失敗:', e));
-            audioElements['b1'].play().catch(e => console.log('b1 播放失敗:', e));
-            audioElements['b2'].play().catch(e => console.log('b2 播放失敗:', e));
-            audioElements['temp'].play().catch(e => console.log('temp 播放失敗:', e));
-
-
+            
+            // 手機優化：添加延遲播放避免同時啟動造成跳針
+            const playPromises = [];
+            Object.keys(audioElements).forEach((voice, index) => {
+                setTimeout(() => {
+                    playPromises.push(
+                        audioElements[voice].play().catch(e => {
+                            console.warn(`${voice} 播放失敗:`, e);
+                            // 手機上如果播放失敗，嘗試重新播放一次
+                            setTimeout(() => {
+                                audioElements[voice].play().catch(e2 => 
+                                    console.error(`${voice} 重試播放也失敗:`, e2)
+                                );
+                            }, 100);
+                        })
+                    );
+                }, index * 10); // 每個音檔間隔10ms播放
+            });
         }
 
         // 暫停所有音檔
@@ -710,18 +735,24 @@
         // 初始化進度條
         updateProgress();
 
-        // 播放進度同步
+        // 播放進度同步 - 手機優化版本
         let playInterval;
+        let syncCounter = 0;
 
         function startPlayback() {
             playInterval = setInterval(() => {
                 if (masterAudio && !isDragging) {
                     currentTime = masterAudio.currentTime;
                     updateProgress();
-                    // 同步其他音檔
-                    syncAudioTime(currentTime);
+                    
+                    // 減少同步頻率：每500ms才同步一次，避免手機跳針
+                    syncCounter++;
+                    if (syncCounter >= 5) {
+                        syncAudioTime(currentTime);
+                        syncCounter = 0;
+                    }
                 }
-            }, 100); // 更頻繁的更新以保持同步
+            }, 100); // 保持UI更新頻率，但減少音檔同步頻率
         }
 
         function stopPlayback() {
