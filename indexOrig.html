@@ -560,33 +560,16 @@
             console.log('播放所有音檔');
             setAudioTime(currentTime);
             updateProgress();
-            
-            if (isIOS) {
-                // iOS 模式：依序啟動音檔，增加間隔
-                const audioKeys = ['s1', 's2', 'a', 't', 'b1', 'b2', 'temp'];
-                audioKeys.forEach((key, index) => {
-                    setTimeout(() => {
-                        audioElements[key].play().catch(e => {
-                            console.log(`${key} 播放失敗 (iOS):`, e);
-                            // iOS 重試機制
-                            setTimeout(() => {
-                                audioElements[key].play().catch(e2 => 
-                                    console.log(`${key} 重試失敗:`, e2)
-                                );
-                            }, 100);
-                        });
-                    }, index * 100); // 每100ms啟動下一個
-                });
-            } else {
-                // 一般模式：同時播放
-                audioElements['s1'].play().catch(e => console.log('s1 播放失敗:', e));
-                audioElements['s2'].play().catch(e => console.log('s2 播放失敗:', e));
-                audioElements['a'].play().catch(e => console.log('a 播放失敗:', e));
-                audioElements['t'].play().catch(e => console.log('t 播放失敗:', e));
-                audioElements['b1'].play().catch(e => console.log('b1 播放失敗:', e));
-                audioElements['b2'].play().catch(e => console.log('b2 播放失敗:', e));
-                audioElements['temp'].play().catch(e => console.log('temp 播放失敗:', e));
-            }
+            // 播放所有聲部音檔
+            audioElements['s1'].play().catch(e => console.log('s1 播放失敗:', e));
+            audioElements['s2'].play().catch(e => console.log('s2 播放失敗:', e));
+            audioElements['a'].play().catch(e => console.log('a 播放失敗:', e));
+            audioElements['t'].play().catch(e => console.log('t 播放失敗:', e));
+            audioElements['b1'].play().catch(e => console.log('b1 播放失敗:', e));
+            audioElements['b2'].play().catch(e => console.log('b2 播放失敗:', e));
+            audioElements['temp'].play().catch(e => console.log('temp 播放失敗:', e));
+
+
         }
 
         // 暫停所有音檔
