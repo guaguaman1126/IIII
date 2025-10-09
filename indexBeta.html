@@ -17,7 +17,8 @@
             height: 100vh;
             display: flex;
             flex-direction: column;
-            background: #2c2c2c        // Web Audio 天生同步，不需要額外同步函數 🎯       color: white;
+            background: #2c2c2c;
+            color: white;
         }
 
         /* 混音器區域 */
@@ -373,6 +374,12 @@
         let audioSources = {};
         let gainNodes = {};
         let currentlySelected = 'all';
+        // 進階播放控制 (Web Audio)
+        let playbackRate = 1.0;   // 全域播放速度
+        let baseStartTime = null; // AudioContext 參考起點：當 currentTime=0 時，audioContext.currentTime 的值
+        // 播放時間狀態（需於所有使用前宣告）
+        let currentTime = 0;
+        let totalTime = 0;
 
 
 
@@ -419,7 +426,7 @@
                 console.log(`${voice} Web Audio 載入完成, 時長: ${audioBuffer.duration}秒`);
                 
                 // 設定主音檔時長
-                if (!totalTime && voice !== 'temp') {
+                if (!totalTime) {
                     totalTime = audioBuffer.duration;
                     updateProgress();
                     console.log('設定主音檔時長:', totalTime);
@@ -455,7 +462,7 @@
                     console.log(`${voice} Web Audio 載入成功 (${loadedCount}/${totalCount})`);
                     
                     // 檢查是否所有音檔都載入完成
-                    if (loadedCount >= totalCount) {
+                    if (loadedCount === totalCount) {
                         hideLoading();
                         console.log('🎉 所有音檔 Web Audio 載入完成！');
                     }
@@ -480,14 +487,7 @@
             loadingOverlay.classList.remove('hidden');
         }
 
-        // 同步所有音檔的播放位置
-        function syncAudioTime(time) {
-            Object.values(audioElements).forEach(audio => {
-                if (Math.abs(audio.currentTime - time) > 0.1) {
-                    audio.currentTime = time;
-                }
-            });
-        }
+        // (移除) HTML5 同步函式：Web Audio 需透過重建 BufferSource 來達成 seek
 
         // 更新滑桿位置和顯示數值的函數
         function updateSlider(voiceKey, volume) {
@@ -606,21 +606,24 @@
                 return;
             }
             
-            // 檢查音檔是否載入完成
+            // 檢查音檔是否載入完成 應該不會用到
             if (Object.keys(audioBuffers).length < totalCount) {
                 console.warn('⏳ 音檔尚未載入完成');
                 return;
             }
             
-            // 停止之前的播放
+            // 停止之前的播放 (避免層疊)
             Object.keys(audioSources).forEach(key => {
                 if (audioSources[key]) {
-                    audioSources[key].stop();
+                    try { audioSources[key].stop(); } catch (e) {}
                     delete audioSources[key];
                 }
             });
             
-            console.log(`🚀 同時啟動 ${Object.keys(audioBuffers).length} 個音軌`);
+            console.log(`🚀 同時啟動 ${Object.keys(audioBuffers).length} 個音軌 (offset=${currentTime.toFixed(2)})`);
+
+            // 設定基準開始時間，供進度條與 seek 使用
+            baseStartTime = audioContext.currentTime - currentTime / playbackRate;
             
             // 同時啟動所有音軌 - 真正的同步播放！
             Object.keys(audioBuffers).forEach(key => {
@@ -628,6 +631,7 @@
                 const gainNode = audioContext.createGain();
                 
                 source.buffer = audioBuffers[key];
+                source.playbackRate.value = playbackRate;
                 source.connect(gainNode);
                 gainNode.connect(audioContext.destination);
                 
@@ -639,11 +643,11 @@
                 audioSources[key] = source;
                 gainNodes[key] = gainNode;
                 
-                console.log(`✅ ${key} 啟動成功`);
+                console.log(`✅ ${key} 啟動成功 (rate=${playbackRate})`);
             });
         }
 
-        // Web Audio 音量設定
+        // Web Audio 音量設定 沒用到而且重複??
         function setWebAudioVolume(key, gainNode) {
             let volume = 0.5; // 預設音量
             
@@ -663,7 +667,7 @@
             // 停止所有音源
             Object.keys(audioSources).forEach(key => {
                 if (audioSources[key]) {
-                    audioSources[key].stop();
+                    try { audioSources[key].stop(); } catch (e) {}
                     delete audioSources[key];
                 }
             });
@@ -672,13 +676,26 @@
             Object.keys(gainNodes).forEach(key => {
                 delete gainNodes[key];
             });
+
+            stopPlayback();
         }
 
         // 設定音檔播放位置 (Pure Web Audio)
         function setAudioTime(time) {
-            currentTime = time;
-            console.log(`⏰ 設定播放時間: ${time.toFixed(2)}秒`);
-            // Web Audio 會在下次 playSelectedVoices() 時從 currentTime 開始播放
+            currentTime = Math.max(0, Math.min(totalTime, time));
+            console.log(`⏰ 設定播放時間: ${currentTime.toFixed(2)}秒`);
+            if (isPlaying) {
+                restartPlaybackAtCurrentTime();
+            } else {
+                updateProgress();
+            }
+        }
+
+        function restartPlaybackAtCurrentTime() {
+            console.log('🔄 重新建立所有來源以套用新的時間/速度');
+            pauseAllAudio();
+            playSelectedVoices();
+            startPlayback();
         }
 
         // 音量控制
@@ -710,26 +727,22 @@
                 this.textContent = '播放';
                 isPlaying = false;
                 pauseAllAudio();
-                stopPlayback();
                 console.log('音檔已暫停');
             } else {
                 this.textContent = '暫停';
                 isPlaying = true;
                 console.log('開始播放...');
-                setAudioTime(currentTime);
-                updateProgress();
-                playSelectedVoices();
-                startPlayback();
+                restartPlaybackAtCurrentTime();
             }
         });
 
         // 跳轉控制
         document.getElementById('prev-btn').addEventListener('click', function () {
-            console.log('後退5秒');
+            setAudioTime(currentTime - 5);
         });
 
         document.getElementById('next-btn').addEventListener('click', function () {
-            console.log('前進5秒');
+            setAudioTime(currentTime + 5);
         });
 
         // 速度控制
@@ -737,18 +750,19 @@
         const speedValue = document.getElementById('speed-value');
 
         speedSlider.addEventListener('input', function () {
-            speedValue.textContent = this.value + 'x';
+            playbackRate = parseFloat(this.value);
+            speedValue.textContent = playbackRate + 'x';
+            if (isPlaying) {
+                restartPlaybackAtCurrentTime();
+            }
         });
 
         // 進度條控制
         const progressBar = document.getElementById('progress-bar');
         const progressFill = document.getElementById('progress-fill');
         const progressHandle = document.getElementById('progress-handle');
-        const currentTimeDisplay = document.getElementById('current-time');
-        const totalTimeDisplay = document.getElementById('total-time');
-
-        let currentTime = 0;
-        let totalTime = 0;
+    const currentTimeDisplay = document.getElementById('current-time');
+    const totalTimeDisplay = document.getElementById('total-time');
         let isDragging = false;
 
         // 格式化時間顯示
@@ -770,18 +784,22 @@
         }
 
         // 設定進度位置
-        function setProgress(percentage) {
+        function setProgress(percentage, commit = false) {
             currentTime = (percentage / 100) * totalTime;
-            setAudioTime(currentTime);
+            if (commit) {
+                // 只有在 click 或拖曳結束時才真正 seek
+                setAudioTime(currentTime);
+            }
+            // 無論是否 commit，都更新視覺進度
             updateProgress();
         }
 
-        // 點擊進度條跳轉
+        // 點擊進度條跳轉：直接 commit seek
         progressBar.addEventListener('click', function (e) {
             if (!isDragging) {
                 const rect = progressBar.getBoundingClientRect();
                 const percentage = ((e.clientX - rect.left) / rect.width) * 100;
-                setProgress(Math.max(0, Math.min(100, percentage)));
+                setProgress(Math.max(0, Math.min(100, percentage)), true);
             }
         });
 
@@ -797,7 +815,8 @@
             if (isDragging) {
                 const rect = progressBar.getBoundingClientRect();
                 const percentage = ((e.clientX - rect.left) / rect.width) * 100;
-                setProgress(Math.max(0, Math.min(100, percentage)));
+                // 拖曳過程僅更新 UI，不重啟播放
+                setProgress(Math.max(0, Math.min(100, percentage)), false);
             }
         }
 
@@ -805,6 +824,8 @@
             isDragging = false;
             document.removeEventListener('mousemove', onMouseMove);
             document.removeEventListener('mouseup', onMouseUp);
+            // 拖曳結束時才真正 seek（若正在播放則會重建來源）
+            setAudioTime(currentTime);
         }
 
         // 初始化進度條
@@ -815,50 +836,35 @@
 
         function startPlayback() {
             console.log('⏯️ 開始 Web Audio 進度追蹤');
-            
-            // Web Audio 進度追蹤：使用 AudioContext 時間
-            const startTime = audioContext.currentTime;
-            const startCurrentTime = currentTime;
-            
+            clearInterval(playInterval);
             playInterval = setInterval(() => {
                 if (!isDragging) {
-                    currentTime = startCurrentTime + (audioContext.currentTime - startTime);
-                    
+                    if (baseStartTime == null) {
+                        baseStartTime = audioContext.currentTime - currentTime / playbackRate;
+                    }
+                    currentTime = (audioContext.currentTime - baseStartTime) * playbackRate;
                     // 檢查播放是否結束
                     if (currentTime >= totalTime) {
                         console.log('🏁 播放結束');
                         playBtn.textContent = '播放';
                         isPlaying = false;
-                        stopPlayback();
+                        clearInterval(playInterval);
                         pauseAllAudio();
-                        currentTime = 0;
+                        currentTime = totalTime;
                     }
-                    
                     updateProgress();
                 }
-            }, 50); // 更順暢的進度更新
+            }, 100);
         }
-
-
 
         function stopPlayback() {
-            clearInterval(playInterval);
+            if (playInterval) {
+                clearInterval(playInterval);
+                playInterval = null;
+            }
         }
 
-        // 跳轉按鈕功能
-        document.getElementById('prev-btn').addEventListener('click', function () {
-            const newTime = Math.max(0, currentTime - 5);
-            currentTime = newTime;
-            setAudioTime(newTime);
-            updateProgress();
-        });
-
-        document.getElementById('next-btn').addEventListener('click', function () {
-            const newTime = Math.min(totalTime, currentTime + 5);
-            currentTime = newTime;
-            setAudioTime(newTime);
-            updateProgress();
-        });
+        
 
         // 聲部選擇
         const voiceButtons = document.querySelectorAll('.voice-btn');
@@ -893,23 +899,16 @@
                 // 立即調用A方法設定音量和更新介面
                 setVolumeAndUI(currentlySelected);
 
-                // 如果正在播放，重新開始播放選定的聲部
+                // 如果正在播放，重新建立來源以應用新的音量配置，保持同步
                 if (isPlaying) {
-                    // 不需要暫停，直接播放
-                    playSelectedVoices();
+                    restartPlaybackAtCurrentTime();
                 }
 
                 console.log('選擇聲部：', buttonText, '-> ', currentlySelected);
             });
         });
 
-        // 速度控制（影響所有音檔）
-        speedSlider.addEventListener('input', function () {
-            speedValue.textContent = this.value + 'x';
-            Object.values(audioElements).forEach(audio => {
-                audio.playbackRate = parseFloat(this.value);
-            });
-        });
+        // 移除舊的 HTML5 速度控制，已改為 Web Audio 的 playbackRate + 重建
 
         // 初始化音檔
         initializeAudio();
