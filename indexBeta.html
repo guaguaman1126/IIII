@@ -17,8 +17,7 @@
             height: 100vh;
             display: flex;
             flex-direction: column;
-            background: #2c2c2c;
-            color: white;
+            background: #2c2c2c        // Web Audio 天生同步，不需要額外同步函數 🎯       color: white;
         }
 
         /* 混音器區域 */
@@ -368,10 +367,12 @@
             'temp': 'temp.mp3'
         };
 
-        // 創建音檔元素
-        const audioElements = {};
+        // Pure Web Audio API 變數
+        let audioContext;
+        let audioBuffers = {};
+        let audioSources = {};
+        let gainNodes = {};
         let currentlySelected = 'all';
-        let masterAudio = null;
 
 
 
@@ -380,59 +381,91 @@
         const totalCount = Object.keys(audioFiles).length;
         const loadingOverlay = document.getElementById('loading-overlay');
 
-        // 初始化音檔
+        // 初始化 Web Audio API
+        function initWebAudio() {
+            try {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                console.log('🎧 Web Audio API 初始化成功，狀態:', audioContext.state);
+                return true;
+            } catch (e) {
+                console.error('❌ Web Audio API 不支援:', e);
+                return false;
+            }
+        }
+
+        // iOS AudioContext 啟動
+        async function resumeAudioContext() {
+            if (audioContext && audioContext.state === 'suspended') {
+                try {
+                    await audioContext.resume();
+                    console.log('AudioContext 已啟動');
+                    return true;
+                } catch (e) {
+                    console.error('AudioContext 啟動失敗:', e);
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        // 載入音檔為 Web Audio 緩衝區
+        async function loadAudioAsBuffer(voice, url) {
+            try {
+                const response = await fetch(url);
+                const arrayBuffer = await response.arrayBuffer();
+                const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+                audioBuffers[voice] = audioBuffer;
+                
+                console.log(`${voice} Web Audio 載入完成, 時長: ${audioBuffer.duration}秒`);
+                
+                // 設定主音檔時長
+                if (!totalTime && voice !== 'temp') {
+                    totalTime = audioBuffer.duration;
+                    updateProgress();
+                    console.log('設定主音檔時長:', totalTime);
+                }
+                
+                return true;
+            } catch (error) {
+                console.error(`${voice} Web Audio 載入失敗:`, error);
+                return false;
+            }
+        }
+
+        // 初始化音檔 - 純 Web Audio 模式
         function initializeAudio() {
-            console.log('開始初始化音檔...');
-            Object.keys(audioFiles).forEach(voice => {
-                console.log(`載入音檔: ${voice} -> ${audioFiles[voice]}`);
-                const audio = new Audio(audioFiles[voice]);
-                audio.preload = 'auto';
-                audio.volume = 0.5; // 初始音量50%
-                audioElements[voice] = audio;
-
-                // 監聽音檔載入完成
-                audio.addEventListener('loadedmetadata', function () {
-                    console.log(`${voice} 音檔載入完成, 時長: ${audio.duration}秒`);
-                    
+            console.log('🚀 開始初始化音檔 - Pure Web Audio 模式');
+            
+            // 初始化 Web Audio API
+            const webAudioReady = initWebAudio();
+            
+            if (!webAudioReady) {
+                console.error('❌ 瀏覽器不支援 Web Audio API！');
+                alert('您的瀏覽器不支援 Web Audio API，請使用較新的瀏覽器 (Chrome 14+, Firefox 25+, Safari 6+)');
+                return;
+            }
+            
+            // 純 Web Audio 載入
+            Object.keys(audioFiles).forEach(async (voice) => {
+                console.log(`載入音檔到 Web Audio: ${voice} -> ${audioFiles[voice]}`);
+                
+                const success = await loadAudioAsBuffer(voice, audioFiles[voice]);
+                if (success) {
                     loadedCount++;
-                    
-                    if (!masterAudio && voice !== 'temp') { // 節拍音檔不作為主音檔
-                        masterAudio = audio;
-                        totalTime = audio.duration;
-                        updateProgress();
-                        console.log('設定主音檔:', voice, '時長:', totalTime);
-                    }
-
-                    // 設定節拍音檔的音量
-                    if (voice === 'temp') {
-                        audio.volume = 0.8; // 節拍音檔設為適中音量
-                    }
+                    console.log(`${voice} Web Audio 載入成功 (${loadedCount}/${totalCount})`);
                     
                     // 檢查是否所有音檔都載入完成
                     if (loadedCount >= totalCount) {
                         hideLoading();
+                        console.log('🎉 所有音檔 Web Audio 載入完成！');
                     }
-                });
+                } else {
+                    console.error(`${voice} Web Audio 載入失敗`);
+                }
 
-                // 監聽載入錯誤
-                audio.addEventListener('error', function (e) {
-                    console.error(`${voice} 音檔載入失敗:`, e);
-                });
-
-                // 監聽播放結束
-                audio.addEventListener('ended', function () {
-                    console.log(`${voice} 播放結束`);
-                    if (isPlaying) {
-                        playBtn.textContent = '播放';
-                        isPlaying = false;
-                        stopPlayback();
-                        currentTime = 0;
-                        updateProgress();
-                    }
-                });
             });
 
-            console.log('音檔元素創建完成:', audioElements);
+            console.log('🚀 Pure Web Audio 載入程序啟動完成');
         }
 
         // 隱藏 Loading 介面
@@ -467,6 +500,17 @@
             }
         }
 
+        // 音量設定函數 (Pure Web Audio)
+        function setVolumeForVoice(voiceKey, volume) {
+            // Web Audio 音量控制
+            if (gainNodes[voiceKey]) {
+                gainNodes[voiceKey].gain.value = volume;
+                console.log(`🔊 ${voiceKey} 音量設為: ${(volume * 100).toFixed(0)}%`);
+            }
+            // 更新滑桿顯示
+            updateSlider(voiceKey, volume);
+        }
+
         // 設定音量和更新介面的函數 (A方法)
         function setVolumeAndUI(selectedVoice) {
             console.log('設定音量和更新介面:', selectedVoice);
@@ -474,79 +518,74 @@
             switch (selectedVoice) {
                 case 'all':
                     // 全部聲部模式：所有聲部都是正常音量
-                    audioElements['s1'].volume = 0.5; updateSlider('s1', 0.5);
-                    audioElements['s2'].volume = 0.5; updateSlider('s2', 0.5);
-                    audioElements['a'].volume = 0.5; updateSlider('a', 0.5);
-                    audioElements['t'].volume = 0.5; updateSlider('t', 0.5);
-                    audioElements['b1'].volume = 0.5; updateSlider('b1', 0.5);
-                    audioElements['b2'].volume = 0.5; updateSlider('b2', 0.5);
-                    audioElements['temp'].volume = audioElements['temp'].volume; updateSlider('temp', audioElements['temp'].volume);
+                    setVolumeForVoice('s1', 0.5);
+                    setVolumeForVoice('s2', 0.5);
+                    setVolumeForVoice('a', 0.5);
+                    setVolumeForVoice('t', 0.5);
+                    setVolumeForVoice('b1', 0.5);
+                    setVolumeForVoice('b2', 0.5);
+                    // temp 音量保持不變
                     break;
 
                 case 's1':
                     // S1重點模式：S1音量0.9，其他聲部0.1
-                    audioElements['s1'].volume = 0.9; updateSlider('s1', 0.9);
-                    audioElements['s2'].volume = 0.1; updateSlider('s2', 0.1);
-                    audioElements['a'].volume = 0.1; updateSlider('a', 0.1);
-                    audioElements['t'].volume = 0.1; updateSlider('t', 0.1);
-                    audioElements['b1'].volume = 0.1; updateSlider('b1', 0.1);
-                    audioElements['b2'].volume = 0.1; updateSlider('b2', 0.1);
-                    audioElements['temp'].volume = audioElements['temp'].volume; updateSlider('temp', audioElements['temp'].volume);
+                    setVolumeForVoice('s1', 0.9);
+                    setVolumeForVoice('s2', 0.1);
+                    setVolumeForVoice('a', 0.1);
+                    setVolumeForVoice('t', 0.1);
+                    setVolumeForVoice('b1', 0.1);
+                    setVolumeForVoice('b2', 0.1);
+                    // temp 音量保持不變
                     break;
 
                 case 's2':
                     // S2重點模式：S2音量0.9，其他聲部0.1
-                    audioElements['s1'].volume = 0.1; updateSlider('s1', 0.1);
-                    audioElements['s2'].volume = 0.9; updateSlider('s2', 0.9);
-                    audioElements['a'].volume = 0.1; updateSlider('a', 0.1);
-                    audioElements['t'].volume = 0.1; updateSlider('t', 0.1);
-                    audioElements['b1'].volume = 0.1; updateSlider('b1', 0.1);
-                    audioElements['b2'].volume = 0.1; updateSlider('b2', 0.1);
-                    audioElements['temp'].volume = audioElements['temp'].volume; updateSlider('temp', audioElements['temp'].volume);
+                    setVolumeForVoice('s1', 0.1);
+                    setVolumeForVoice('s2', 0.9);
+                    setVolumeForVoice('a', 0.1);
+                    setVolumeForVoice('t', 0.1);
+                    setVolumeForVoice('b1', 0.1);
+                    setVolumeForVoice('b2', 0.1);
                     break;
 
                 case 'a':
                     // A重點模式：A音量0.9，其他聲部0.1
-                    audioElements['s1'].volume = 0.1; updateSlider('s1', 0.1);
-                    audioElements['s2'].volume = 0.1; updateSlider('s2', 0.1);
-                    audioElements['a'].volume = 0.9; updateSlider('a', 0.9);
-                    audioElements['t'].volume = 0.1; updateSlider('t', 0.1);
-                    audioElements['b1'].volume = 0.1; updateSlider('b1', 0.1);
-                    audioElements['b2'].volume = 0.1; updateSlider('b2', 0.1);
-                    audioElements['temp'].volume = audioElements['temp'].volume; updateSlider('temp', audioElements['temp'].volume);
+                    setVolumeForVoice('s1', 0.1);
+                    setVolumeForVoice('s2', 0.1);
+                    setVolumeForVoice('a', 0.9);
+                    setVolumeForVoice('t', 0.1);
+                    setVolumeForVoice('b1', 0.1);
+                    setVolumeForVoice('b2', 0.1);
                     break;
 
                 case 't':
                     // T重點模式：T音量0.9，其他聲部0.1
-                    audioElements['s1'].volume = 0.1; updateSlider('s1', 0.1);
-                    audioElements['s2'].volume = 0.1; updateSlider('s2', 0.1);
-                    audioElements['a'].volume = 0.1; updateSlider('a', 0.1);
-                    audioElements['t'].volume = 0.9; updateSlider('t', 0.9);
-                    audioElements['b1'].volume = 0.1; updateSlider('b1', 0.1);
-                    audioElements['b2'].volume = 0.1; updateSlider('b2', 0.1);
-                    audioElements['temp'].volume = audioElements['temp'].volume; updateSlider('temp', audioElements['temp'].volume);
+                    setVolumeForVoice('s1', 0.1);
+                    setVolumeForVoice('s2', 0.1);
+                    setVolumeForVoice('a', 0.1);
+                    setVolumeForVoice('t', 0.9);
+                    setVolumeForVoice('b1', 0.1);
+                    setVolumeForVoice('b2', 0.1);
                     break;
 
                 case 'b1':
                     // B1重點模式：B1音量0.9，其他聲部0.1
-                    audioElements['s1'].volume = 0.1; updateSlider('s1', 0.1);
-                    audioElements['s2'].volume = 0.1; updateSlider('s2', 0.1);
-                    audioElements['a'].volume = 0.1; updateSlider('a', 0.1);
-                    audioElements['t'].volume = 0.1; updateSlider('t', 0.1);
-                    audioElements['b1'].volume = 0.9; updateSlider('b1', 0.9);
-                    audioElements['b2'].volume = 0.1; updateSlider('b2', 0.1);
-                    audioElements['temp'].volume = audioElements['temp'].volume; updateSlider('temp', audioElements['temp'].volume);
+                    setVolumeForVoice('s1', 0.1);
+                    setVolumeForVoice('s2', 0.1);
+                    setVolumeForVoice('a', 0.1);
+                    setVolumeForVoice('t', 0.1);
+                    setVolumeForVoice('b1', 0.9);
+                    setVolumeForVoice('b2', 0.1);
                     break;
 
                 case 'b2':
                     // B2重點模式：B2音量0.9，其他聲部0.1
-                    audioElements['s1'].volume = 0.1; updateSlider('s1', 0.1);
-                    audioElements['s2'].volume = 0.1; updateSlider('s2', 0.1);
-                    audioElements['a'].volume = 0.1; updateSlider('a', 0.1);
-                    audioElements['t'].volume = 0.1; updateSlider('t', 0.1);
-                    audioElements['b1'].volume = 0.1; updateSlider('b1', 0.1);
-                    audioElements['b2'].volume = 0.9; updateSlider('b2', 0.9);
-                    audioElements['temp'].volume = audioElements['temp'].volume; updateSlider('temp', audioElements['temp'].volume);
+                    setVolumeForVoice('s1', 0.1);
+                    setVolumeForVoice('s2', 0.1);
+                    setVolumeForVoice('a', 0.1);
+                    setVolumeForVoice('t', 0.1);
+                    setVolumeForVoice('b1', 0.1);
+                    setVolumeForVoice('b2', 0.9);
                     break;
 
                 default:
@@ -555,35 +594,91 @@
             }
         }
 
-        // 播放所有音檔 (簡化版)
-        function playSelectedVoices() {
-            console.log('播放所有音檔');
-            setAudioTime(currentTime);
-            updateProgress();
-            // 播放所有聲部音檔
-            audioElements['s1'].play().catch(e => console.log('s1 播放失敗:', e));
-            audioElements['s2'].play().catch(e => console.log('s2 播放失敗:', e));
-            audioElements['a'].play().catch(e => console.log('a 播放失敗:', e));
-            audioElements['t'].play().catch(e => console.log('t 播放失敗:', e));
-            audioElements['b1'].play().catch(e => console.log('b1 播放失敗:', e));
-            audioElements['b2'].play().catch(e => console.log('b2 播放失敗:', e));
-            audioElements['temp'].play().catch(e => console.log('temp 播放失敗:', e));
-
-
+        // 播放所有音檔 (Pure Web Audio)
+        async function playSelectedVoices() {
+            console.log('🎵 開始 Web Audio 播放');
+            
+            // 確保 AudioContext 已啟動 (iOS/Android 需要用戶互動)
+            const contextReady = await resumeAudioContext();
+            if (!contextReady) {
+                console.error('❌ AudioContext 無法啟動');
+                alert('音頻播放需要用戶互動，請重新點擊播放按鈕');
+                return;
+            }
+            
+            // 檢查音檔是否載入完成
+            if (Object.keys(audioBuffers).length < totalCount) {
+                console.warn('⏳ 音檔尚未載入完成');
+                return;
+            }
+            
+            // 停止之前的播放
+            Object.keys(audioSources).forEach(key => {
+                if (audioSources[key]) {
+                    audioSources[key].stop();
+                    delete audioSources[key];
+                }
+            });
+            
+            console.log(`🚀 同時啟動 ${Object.keys(audioBuffers).length} 個音軌`);
+            
+            // 同時啟動所有音軌 - 真正的同步播放！
+            Object.keys(audioBuffers).forEach(key => {
+                const source = audioContext.createBufferSource();
+                const gainNode = audioContext.createGain();
+                
+                source.buffer = audioBuffers[key];
+                source.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+                
+                // 設定音量
+                setWebAudioVolume(key, gainNode);
+                
+                // 從指定時間開始播放
+                source.start(0, currentTime);
+                audioSources[key] = source;
+                gainNodes[key] = gainNode;
+                
+                console.log(`✅ ${key} 啟動成功`);
+            });
         }
 
-        // 暫停所有音檔
+        // Web Audio 音量設定
+        function setWebAudioVolume(key, gainNode) {
+            let volume = 0.5; // 預設音量
+            
+            if (key === 'temp') {
+                volume = 0.8; // 節拍音檔
+            } else if (currentlySelected !== 'all') {
+                volume = (currentlySelected === key) ? 0.9 : 0.1;
+            }
+            
+            gainNode.gain.value = volume;
+        }
+
+        // 暫停所有音檔 (Pure Web Audio)
         function pauseAllAudio() {
-            Object.values(audioElements).forEach(audio => {
-                audio.pause();
+            console.log('⏸️ 停止所有 Web Audio 播放');
+            
+            // 停止所有音源
+            Object.keys(audioSources).forEach(key => {
+                if (audioSources[key]) {
+                    audioSources[key].stop();
+                    delete audioSources[key];
+                }
+            });
+            
+            // 清空 gainNodes 參考
+            Object.keys(gainNodes).forEach(key => {
+                delete gainNodes[key];
             });
         }
 
-        // 設定音檔播放位置
+        // 設定音檔播放位置 (Pure Web Audio)
         function setAudioTime(time) {
-            Object.values(audioElements).forEach(audio => {
-                audio.currentTime = time;
-            });
+            currentTime = time;
+            console.log(`⏰ 設定播放時間: ${time.toFixed(2)}秒`);
+            // Web Audio 會在下次 playSelectedVoices() 時從 currentTime 開始播放
         }
 
         // 音量控制
@@ -594,11 +689,14 @@
 
             slider.addEventListener('input', function () {
                 valueDisplay.textContent = this.value;
-                // 更新對應音檔的音量（包含節拍音檔）
-                if (audioElements[voiceKey]) {
-                    audioElements[voiceKey].volume = this.value / 100;
-                    console.log(`${voiceKey} 音量調整為: ${this.value}%`);
+                const volume = this.value / 100;
+                
+                // Pure Web Audio 音量控制
+                if (gainNodes[voiceKey]) {
+                    gainNodes[voiceKey].gain.value = volume;
                 }
+                
+                console.log(`🎛️ ${voiceKey} 音量調整為: ${this.value}%`);
             });
         });
 
@@ -716,14 +814,29 @@
         let playInterval;
 
         function startPlayback() {
+            console.log('⏯️ 開始 Web Audio 進度追蹤');
+            
+            // Web Audio 進度追蹤：使用 AudioContext 時間
+            const startTime = audioContext.currentTime;
+            const startCurrentTime = currentTime;
+            
             playInterval = setInterval(() => {
-                if (masterAudio && !isDragging) {
-                    currentTime = masterAudio.currentTime;
+                if (!isDragging) {
+                    currentTime = startCurrentTime + (audioContext.currentTime - startTime);
+                    
+                    // 檢查播放是否結束
+                    if (currentTime >= totalTime) {
+                        console.log('🏁 播放結束');
+                        playBtn.textContent = '播放';
+                        isPlaying = false;
+                        stopPlayback();
+                        pauseAllAudio();
+                        currentTime = 0;
+                    }
+                    
                     updateProgress();
-                    // 同步其他音檔
-                    syncAudioTime(currentTime);
                 }
-            }, 100); // 更頻繁的更新以保持同步
+            }, 50); // 更順暢的進度更新
         }
 
 
