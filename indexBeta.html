@@ -52,6 +52,7 @@
 
         .volume-slider {
             writing-mode: bt-lr;
+            appearance: slider-vertical;
             -webkit-appearance: slider-vertical;
             width: 30px;
             height: 200px;
@@ -373,21 +374,23 @@
     <script>
         // 音檔路徑配置
         const audioFiles = {
-            // 's1': 'Source/s1.mp3',
-            // 's2': 'Source/s2.mp3',
-            // 'a': 'Source/a.mp3',
-            // 't': 'Source/t.mp3',
-            // 'b1': 'Source/b1.mp3',
-            // 'b2': 'Source/b2.mp3',
-            // 'temp': 'Source/temp.mp3'
+            // 使用與網頁同源的本機檔案，避免 github.com/blob 的 CORS/HTML 內容問題
+            's1': 'Source/s1.mp3?v=timestamp',
+            's2': 'Source/s2.mp3',
+            'a': 'Source/a.mp3',
+            't': 'Source/t.mp3',
+            'b1': 'Source/b1.mp3',
+            'b2': 'Source/b2.mp3',
+            'temp': 'Source/temp.mp3'
 
-            's1': 'Source/i carry your heart(1010)-女高音.mp3',
-            's2': 'Source/i carry your heart(1010)-女高音_2.mp3',
-            'a': 'Source/i carry your heart(1010)-女低音.mp3',
-            't': 'Source/i carry your heart(1010)-男高音.mp3',
-            'b1': 'Source/i carry your heart(1010)-男低音.mp3',
-            'b2': 'Source/i carry your heart(1010)-男低音_2.mp3',
-            'temp': 'Source/i carry your heart(1010)-節拍器.mp3'
+            // 備用：若需切回原始長檔名，請改用下列相對路徑（勿使用 github.com/blob 連結）
+            // 's1': 'Source/i carry your heart(1010)-女高音.mp3',
+            // 's2': 'Source/i carry your heart(1010)-女高音_2.mp3',
+            // 'a': 'Source/i carry your heart(1010)-女低音.mp3',
+            // 't': 'Source/i carry your heart(1010)-男高音.mp3',
+            // 'b1': 'Source/i carry your heart(1010)-男低音.mp3',
+            // 'b2': 'Source/i carry your heart(1010)-男低音_2.mp3',
+            // 'temp': 'Source/i carry your heart(1010)-節拍器.mp3'
         };
 
         // Pure Web Audio API 變數
@@ -402,6 +405,26 @@
         // 播放時間狀態（需於所有使用前宣告）
         let currentTime = 0;
         let totalTime = 0;
+
+        // 簡易快取破壞（cache-busting）設定
+        // 模式：'none' 不做；'timestamp' 每次載入都用當下時間（最強、但流量較多）；'version' 用固定版本字串（建議）
+        const CACHE_BUST_MODE = 'version'; // 'none' | 'timestamp' | 'version'
+        const ASSET_VERSION = '20251010-1'; // 調整此值即可強制所有使用者重新抓音檔
+
+        function withCacheBuster(url) {
+            if (!url) return url;
+            // 若網址本身包含 v=timestamp，則以目前時間取代
+            if (url.includes('v=timestamp')) {
+                return url.replace('v=timestamp', `v=${Date.now()}`);
+            }
+            if (CACHE_BUST_MODE === 'none') return url;
+            const sep = url.includes('?') ? '&' : '?';
+            if (CACHE_BUST_MODE === 'timestamp') {
+                return `${url}${sep}v=${Date.now()}`;
+            }
+            // 'version'
+            return `${url}${sep}v=${encodeURIComponent(ASSET_VERSION)}`;
+        }
 
 
 
@@ -440,10 +463,11 @@
         // 載入音檔為 Web Audio 緩衝區
         async function loadAudioAsBuffer(voice, url) {
             try {
-                console.log(`開始載入音檔: ${voice} -> ${url}`);
-                const response = await fetch(url);
+        const fetchUrl = withCacheBuster(url);
+        console.log(`開始載入音檔: ${voice} -> ${fetchUrl}`);
+        const response = await fetch(fetchUrl);
         // 測試哪行怪
-                console.log(response);
+        console.log(response);
                 const arrayBuffer = await response.arrayBuffer();
                 console.log(arrayBuffer);
                 const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
@@ -452,11 +476,12 @@
                 
                 console.log(`${voice} Web Audio 載入完成, 時長: ${audioBuffer.duration}秒`);
                 
-                // 設定主音檔時長
-                if (!totalTime) {
-                    totalTime = audioBuffer.duration;
+                // 設定總時長為已載入音軌的最長值
+                const newTotal = Math.max(totalTime || 0, audioBuffer.duration || 0);
+                if (newTotal !== totalTime) {
+                    totalTime = newTotal;
                     updateProgress();
-                    console.log('設定主音檔時長:', totalTime);
+                    console.log('更新總時長為最長音軌:', totalTime);
                 }
                 
                 return true;
