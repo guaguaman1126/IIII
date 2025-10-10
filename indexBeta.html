@@ -405,25 +405,11 @@
         // 初始化 Web Audio API
         function initWebAudio() {
             try {
-                // 檢查瀏覽器支援
-                const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-                if (!AudioContextClass) {
-                    throw new Error('瀏覽器不支援 Web Audio API');
-                }
-                
-                audioContext = new AudioContextClass({
-                    sampleRate: 44100, // 強制使用標準採樣率
-                    latencyHint: 'interactive'
-                });
-                
-                console.log('🎧 Web Audio API 初始化成功');
-                console.log(`   狀態: ${audioContext.state}`);
-                console.log(`   採樣率: ${audioContext.sampleRate} Hz`);
-                console.log(`   基準時間: ${audioContext.baseLatency?.toFixed(3) || 'N/A'} 秒`);
-                
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                console.log('🎧 Web Audio API 初始化成功，狀態:', audioContext.state);
                 return true;
             } catch (e) {
-                console.error('❌ Web Audio API 初始化失敗:', e.message);
+                console.error('❌ Web Audio API 不支援:', e);
                 return false;
             }
         }
@@ -477,45 +463,7 @@
                         throw new Error('音檔內容為空');
                     }
                     
-                    console.log(`🔍 ${voice} 檔案大小: ${(arrayBuffer.byteLength / 1024).toFixed(1)} KB`);
-                    
-                    // 使用 Promise 包裝 decodeAudioData（兼容性更好）
-                    const audioBuffer = await new Promise((resolve, reject) => {
-                        console.log(`🎧 ${voice} 開始音頻解碼...`);
-                        
-                        // 現代瀏覽器的 Promise 版本
-                        if (audioContext.decodeAudioData.length === 1) {
-                            audioContext.decodeAudioData(arrayBuffer.slice())
-                                .then(buffer => {
-                                    console.log(`✨ ${voice} 解碼成功 (現代API)`);
-                                    resolve(buffer);
-                                })
-                                .catch(error => {
-                                    console.error(`💥 ${voice} 解碼失敗 (現代API):`, error);
-                                    reject(new Error(`解碼失敗: ${error.message}`));
-                                });
-                        } else {
-                            // 舊瀏覽器的 callback 版本
-                            console.log(`🔄 ${voice} 使用舊版 API 解碼...`);
-                            audioContext.decodeAudioData(
-                                arrayBuffer.slice(),
-                                buffer => {
-                                    console.log(`✨ ${voice} 解碼成功 (舊版API)`);
-                                    resolve(buffer);
-                                },
-                                error => {
-                                    console.error(`💥 ${voice} 解碼失敗 (舊版API):`, error);
-                                    reject(new Error(`舊版API解碼失敗: ${error?.message || '未知錯誤'}`));
-                                }
-                            );
-                        }
-                        
-                        // 解碼超時保護
-                        setTimeout(() => {
-                            console.error(`⏰ ${voice} 解碼超時`);
-                            reject(new Error('解碼超時（可能是音檔格式問題）'));
-                        }, 10000); // 10秒解碼超時
-                    });
+                    const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
                     audioBuffers[voice] = audioBuffer;
                     
                     console.log(`✅ ${voice} Web Audio 載入完成, 時長: ${audioBuffer.duration.toFixed(2)}秒`);
@@ -807,25 +755,30 @@
                 source.connect(gainNode);
                 gainNode.connect(audioContext.destination);
                 
-                // 設定音量（使用統一的音量邏輯）
-                let volume = 0.5; // 預設音量
-                if (key === 'temp') {
-                    volume = 0.8; // 節拍音檔
-                } else if (currentlySelected !== 'all') {
-                    volume = (currentlySelected === key) ? 0.9 : 0.1;
-                }
-                gainNode.gain.value = volume;
+                // 設定音量
+                setWebAudioVolume(key, gainNode);
                 
                 // 從指定時間開始播放
                 source.start(0, currentTime);
                 audioSources[key] = source;
                 gainNodes[key] = gainNode;
                 
-                console.log(`✅ ${key} 啟動成功 (volume=${(volume*100).toFixed(0)}%, rate=${playbackRate})`);
+                console.log(`✅ ${key} 啟動成功 (rate=${playbackRate})`);
             });
         }
 
-        // (已移除重複的 setWebAudioVolume 函數，改用內聯音量設定)
+        // Web Audio 音量設定 沒用到而且重複??
+        function setWebAudioVolume(key, gainNode) {
+            let volume = 0.5; // 預設音量
+            
+            if (key === 'temp') {
+                volume = 0.8; // 節拍音檔
+            } else if (currentlySelected !== 'all') {
+                volume = (currentlySelected === key) ? 0.9 : 0.1;
+            }
+            
+            gainNode.gain.value = volume;
+        }
 
         // 暫停所有音檔 (Pure Web Audio)
         function pauseAllAudio() {
