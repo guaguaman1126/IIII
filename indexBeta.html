@@ -429,73 +429,32 @@
             return true;
         }
 
-        // 載入音檔為 Web Audio 緩衝區（含逾時和重試機制）
+        // 載入音檔為 Web Audio 緩衝區
         async function loadAudioAsBuffer(voice, url) {
-            const maxRetries = 2;
-            let lastError = null;
-            
-            for (let attempt = 1; attempt <= maxRetries; attempt++) {
-                try {
-                    console.log(`🎵 ${voice} 載入嘗試 ${attempt}/${maxRetries}: ${url}`);
-                    
-                    // 創建帶逾時的 fetch
-                    const controller = new AbortController();
-                    const timeoutId = setTimeout(() => {
-                        controller.abort();
-                        console.log(`⏱️ ${voice} 載入逾時 (attempt ${attempt})`);
-                    }, 15000); // 15秒逾時
-                    
-                    const response = await fetch(url, { 
-                        signal: controller.signal,
-                        cache: 'no-cache' // 避免 GitHub Pages 快取問題
-                    });
-                    
-                    clearTimeout(timeoutId);
-                    
-                    if (!response.ok) {
-                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-                    }
-                    
-                    console.log(`📥 ${voice} 下載完成，開始解碼...`);
-                    const arrayBuffer = await response.arrayBuffer();
-                    
-                    if (!arrayBuffer || arrayBuffer.byteLength === 0) {
-                        throw new Error('音檔內容為空');
-                    }
-                    
-                    const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
-                    audioBuffers[voice] = audioBuffer;
-                    
-                    console.log(`✅ ${voice} Web Audio 載入完成, 時長: ${audioBuffer.duration.toFixed(2)}秒`);
-                    
-                    // 設定主音檔時長（排除 temp）
-                    if (!totalTime && voice !== 'temp') {
-                        totalTime = audioBuffer.duration;
-                        updateProgress();
-                        console.log('🎵 設定主音檔時長:', totalTime.toFixed(2));
-                    }
-                    
-                    return true;
-                    
-                } catch (error) {
-                    lastError = error;
-                    const errorMsg = error.name === 'AbortError' ? '載入逾時' : error.message;
-                    console.error(`❌ ${voice} 載入失敗 (attempt ${attempt}): ${errorMsg}`);
-                    
-                    if (attempt < maxRetries) {
-                        const delay = attempt * 1000; // 遞增延遲
-                        console.log(`🔄 ${voice} 將在 ${delay}ms 後重試...`);
-                        await new Promise(resolve => setTimeout(resolve, delay));
-                    }
+            try {
+                const response = await fetch(url);
+                const arrayBuffer = await response.arrayBuffer();
+                const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+                audioBuffers[voice] = audioBuffer;
+                
+                console.log(`${voice} Web Audio 載入完成, 時長: ${audioBuffer.duration}秒`);
+                
+                // 設定主音檔時長
+                if (!totalTime) {
+                    totalTime = audioBuffer.duration;
+                    updateProgress();
+                    console.log('設定主音檔時長:', totalTime);
                 }
+                
+                return true;
+            } catch (error) {
+                console.error(`${voice} Web Audio 載入失敗:`, error);
+                return false;
             }
-            
-            console.error(`💔 ${voice} 經過 ${maxRetries} 次嘗試仍然失敗:`, lastError?.message || '未知錯誤');
-            return false;
         }
 
         // 初始化音檔 - 純 Web Audio 模式
-        async function initializeAudio() {
+        function initializeAudio() {
             console.log('🚀 開始初始化音檔 - Pure Web Audio 模式');
             
             // 初始化 Web Audio API
@@ -507,98 +466,33 @@
                 return;
             }
             
-            console.log(`📋 準備載入 ${totalCount} 個音檔: ${Object.keys(audioFiles).join(', ')}`);
-            
-            // 設定載入超時保護 (GitHub Pages 可能較慢)
-            const timeoutId = setTimeout(() => {
-                console.warn('⏰ 載入超時，強制完成載入程序');
-                const successCount = Object.keys(audioBuffers).length;
-                if (successCount > 0) {
-                    console.log(`🎉 超時保護觸發，已載入 ${successCount}/${totalCount} 個音檔`);
-                    hideLoading();
-                } else {
-                    console.error('❌ 超時且無任何音檔載入成功');
-                    alert('音檔載入超時，請檢查網路連線並重新整理頁面');
-                }
-            }, 30000); // 30秒超時
-            
-            try {
-                // 使用 Promise.allSettled 等待所有載入完成（無論成功或失敗）
-                const audioEntries = Object.entries(audioFiles);
-                const loadPromises = audioEntries.map(async ([voice, url], index) => {
-                    console.log(`🔄 [${index + 1}/${totalCount}] 開始載入 ${voice}: ${url}`);
+            // 純 Web Audio 載入
+            Object.keys(audioFiles).forEach(async (voice) => {
+                console.log(`載入音檔到 Web Audio: ${voice} -> ${audioFiles[voice]}`);
+                
+                const success = await loadAudioAsBuffer(voice, audioFiles[voice]);
+                if (success) {
+                    loadedCount++;
+                    console.log(`${voice} Web Audio 載入成功 (${loadedCount}/${totalCount})`);
                     
-                    try {
-                        const success = await loadAudioAsBuffer(voice, url);
-                        if (success) {
-                            console.log(`✅ [${index + 1}/${totalCount}] ${voice} 載入成功`);
-                            return { voice, success: true };
-                        } else {
-                            console.error(`❌ [${index + 1}/${totalCount}] ${voice} 載入失敗`);
-                            return { voice, success: false };
-                        }
-                    } catch (error) {
-                        console.error(`💥 [${index + 1}/${totalCount}] ${voice} 載入異常:`, error);
-                        return { voice, success: false, error: error.message };
+                    // 檢查是否所有音檔都載入完成
+                    if (loadedCount === totalCount) {
+                        hideLoading();
+                        console.log('🎉 所有音檔 Web Audio 載入完成！');
                     }
-                });
-
-                console.log('⏳ 等待所有音檔載入完成...');
-                const results = await Promise.allSettled(loadPromises);
-                
-                clearTimeout(timeoutId);
-                
-                // 統計結果
-                const successResults = results.filter(r => 
-                    r.status === 'fulfilled' && r.value.success
-                );
-                const failedResults = results.filter(r => 
-                    r.status === 'rejected' || (r.status === 'fulfilled' && !r.value.success)
-                );
-                
-                console.log(`📊 載入結果統計:`);
-                console.log(`   ✅ 成功: ${successResults.length}/${totalCount}`);
-                console.log(`   ❌ 失敗: ${failedResults.length}/${totalCount}`);
-                
-                if (successResults.length > 0) {
-                    console.log(`🎊 載入完成！載入成功的音檔: ${Object.keys(audioBuffers).join(', ')}`);
-                    hideLoading();
-                    
-                    // 設定初始音量
-                    setTimeout(() => {
-                        setVolumeAndUI('all');
-                        console.log('🔊 初始音量設定完成');
-                    }, 100);
                 } else {
-                    console.error('💔 沒有任何音檔載入成功');
-                    alert('所有音檔載入失敗！\n可能原因：\n1. 網路連線問題\n2. 音檔檔案不存在\n3. GitHub Pages 快取問題\n\n請重新整理頁面重試。');
+                    console.error(`${voice} Web Audio 載入失敗`);
                 }
-                
-            } catch (error) {
-                clearTimeout(timeoutId);
-                console.error('🚨 載入程序發生嚴重錯誤:', error);
-                alert(`載入失敗: ${error.message}\n\n請重新整理頁面重試。`);
-            }
+
+            });
 
             console.log('🚀 Pure Web Audio 載入程序啟動完成');
         }
 
         // 隱藏 Loading 介面
         function hideLoading() {
-            const loadedVoices = Object.keys(audioBuffers);
-            const allVoices = Object.keys(audioFiles);
-            const missingVoices = allVoices.filter(v => !loadedVoices.includes(v));
-            
-            console.log('🎊 Loading 完成統計:');
-            console.log(`   ✅ 成功載入: ${loadedVoices.length}/${allVoices.length}`);
-            console.log(`   📋 已載入音檔: [${loadedVoices.join(', ')}]`);
-            
-            if (missingVoices.length > 0) {
-                console.warn(`   ⚠️  缺少音檔: [${missingVoices.join(', ')}]`);
-            }
-            
+            console.log('所有音檔載入完成，隱藏 Loading 介面');
             loadingOverlay.classList.add('hidden');
-            console.log('🚪 Loading 介面已隱藏');
         }
 
         // 顯示 Loading 介面 (可用於重新載入)
