@@ -432,9 +432,14 @@
         // 載入音檔為 Web Audio 緩衝區
         async function loadAudioAsBuffer(voice, url) {
             try {
+                console.log(`開始載入音檔: ${voice} -> ${url}`);
                 const response = await fetch(url);
+        // 測試哪行怪
+                console.log(response);
                 const arrayBuffer = await response.arrayBuffer();
+                console.log(arrayBuffer);
                 const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+                console.log(audioBuffer);
                 audioBuffers[voice] = audioBuffer;
                 
                 console.log(`${voice} Web Audio 載入完成, 時長: ${audioBuffer.duration}秒`);
